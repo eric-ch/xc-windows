@@ -263,27 +263,6 @@ handle_power_passive(struct scsifilt *sf, PIRP irp)
 {
     IO_STACK_LOCATION *const isl = IoGetCurrentIrpStackLocation(irp);
 
-    if (isl->MinorFunction != IRP_MN_QUERY_POWER) {
-        if (isl->Parameters.Power.ShutdownType == PowerActionNone &&
-            isl->Parameters.Power.Type == DevicePowerState &&
-            isl->Parameters.Power.State.DeviceState == PowerDeviceD3) {
-            BOOLEAN allow_power_down;
-
-            // Note, this block is preventing disk idle power-downs that are sent due to power policy settings
-            // that turn off disks after an idle interval. The check for PowerActionNone prevents this code
-            // path from executing during a system power state change.
-            xenbus_read_feature_flag(XBT_NIL, sf->backend_path, "feature-allow-power-down", &allow_power_down);
-            TraceVerbose(("%s/%s == %s\n", sf->backend_path, "feature-allow-power-down", (allow_power_down) ? "TRUE" : "FALSE"));
-
-            if (!allow_power_down) {
-                TraceNotice(("Prevent disk idle power-down for target %d\n", sf->target_id));
-                PoStartNextPowerIrp(irp);
-                complete_irp(irp, STATUS_UNSUCCESSFUL);
-                return;
-            }
-        }
-    }
-
     if (isl->MinorFunction != IRP_MN_SET_POWER) {
         /* Don't need to do anything for non-SET_POWER power IRPs. */
         PoStartNextPowerIrp(irp);
